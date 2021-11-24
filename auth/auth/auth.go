@@ -20,5 +20,7 @@ type Service struct {
 
 func (s *Service) Login(c context.Context, req *authpb.LoginRequest) (*authpb.LoginResponse, error) {
 	s.Logger.Info("received code:", zap.String("code", req.Code))
-	return nil, nil
+	return &authpb.LoginResponse{
+		AccessToken: req.Code + "-accessToken",
+	}, nil
 }

@@ -35,5 +35,14 @@ func main() {
 	})
 
 	err = s.Serve(listenr)
-	logger.Fatal("cannot server", zap.Error(err))
+	if err != nil {
+		logger.Fatal("cannot server", zap.Error(err))
+	}
 }
+
+// 自定义 ZAP LOGGER
+// func newZapLogger() (*zap.Logger, error) {
+// 	cfg := zap.NewDevelopmentConfig()
+// 	cfg.EncoderConfig.TimeKey = ""
+// 	return cfg.Build()
+// }
