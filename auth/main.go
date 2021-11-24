@@ -3,6 +3,7 @@ package main
 import (
 	authpb "coolcar/auth/api/gen/v1"
 	"coolcar/auth/auth"
+	"coolcar/auth/wechat"
 	"log"
 	"net"
 
@@ -31,6 +32,10 @@ func main() {
 	// 参数1：grpc.Server
 	// 参数2：AuthServiceServer
 	authpb.RegisterAuthServiceServer(s, &auth.Service{
+		OpenIDResolver: &wechat.Service{
+			AppID:     "wx2f9adc3f3ef8f540",
+			AppSecret: "654e58d975b0fcde812beacd54f8a6c8",
+		},
 		Logger: logger,
 	})
 
