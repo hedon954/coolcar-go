@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	authpb "coolcar/auth/api/gen/v1"
 	"coolcar/auth/auth"
+	"coolcar/auth/dao"
 	"coolcar/auth/wechat"
 	"log"
 	"net"
 
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -22,8 +26,16 @@ func main() {
 	// grpc 是 tcp 服务
 	listenr, err := net.Listen("tcp", ":9090")
 	if err != nil {
-		logger.Fatal("cannot create grpc listner: %v", zap.Error(err))
+		logger.Fatal("cannot create grpc listner", zap.Error(err))
 	}
+
+	// 获取一个 MongoDB Client 对象
+	c := context.Background()
+	mongoClient, err := mongo.Connect(c, options.Client().ApplyURI("mongodb://localhost:27017").SetRetryWrites(false))
+	if err != nil {
+		logger.Fatal("cannot connect mongodb", zap.Error(err))
+	}
+	db := mongoClient.Database("coolcar")
 
 	// 开启一个 grpc 服务
 	s := grpc.NewServer()
@@ -36,6 +48,7 @@ func main() {
 			AppID:     "wx2f9adc3f3ef8f540",
 			AppSecret: "654e58d975b0fcde812beacd54f8a6c8",
 		},
+		Mongo:  dao.NewMongo(db),
 		Logger: logger,
 	})
 

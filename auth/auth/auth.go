@@ -4,6 +4,7 @@ import (
 	"context"
 
 	authpb "coolcar/auth/api/gen/v1"
+	"coolcar/auth/dao"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -19,7 +20,8 @@ import (
 // Auth Service, 需要实现 grpc 的 AuthServiceServer 这个接口
 type Service struct {
 	OpenIDResolver OpenIDResolver // OpenID 解析器
-	Logger         *zap.Logger    // zap 包的日志工具
+	Mongo          *dao.Mongo
+	Logger         *zap.Logger // zap 包的日志工具
 }
 
 // OpenID 解析器
@@ -35,10 +37,17 @@ func (s *Service) Login(c context.Context, req *authpb.LoginRequest) (*authpb.Lo
 		return nil, status.Errorf(codes.Unavailable, "cannot resolve openID %v: ", err)
 	}
 
+	// 根据 OpenID 获取 AccountID
+	accountID, err := s.Mongo.ResolveAccountID(c, openID)
+	if err != nil {
+		s.Logger.Error("cannot resolve account id", zap.Error(err))
+		return nil, status.Error(codes.Internal, "")
+	}
+
 	// 日志
 	s.Logger.Info("received code:", zap.String("code", req.Code))
 
 	return &authpb.LoginResponse{
-		AccessToken: openID,
+		AccessToken: "token for account id: " + accountID,
 	}, nil
 }
