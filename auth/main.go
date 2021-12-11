@@ -2,13 +2,19 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
+	"log"
+	"net"
+	"os"
+	"time"
+
 	authpb "coolcar/auth/api/gen/v1"
 	"coolcar/auth/auth"
 	"coolcar/auth/dao"
+	"coolcar/auth/token"
 	"coolcar/auth/wechat"
-	"log"
-	"net"
 
+	"github.com/dgrijalva/jwt-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
@@ -37,6 +43,20 @@ func main() {
 	}
 	db := mongoClient.Database("coolcar")
 
+	// 获取 PRIVATE KEY
+	pkFile, err := os.Open("auth/private.key")
+	if err != nil {
+		logger.Fatal("cannot open private.key", zap.Error(err))
+	}
+	pkBytes, err := ioutil.ReadAll(pkFile)
+	if err != nil {
+		logger.Fatal("cannot read private.key", zap.Error(err))
+	}
+	pk, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(pkBytes))
+	if err != nil {
+		logger.Fatal("cannot parse private key", zap.Error(err))
+	}
+
 	// 开启一个 grpc 服务
 	s := grpc.NewServer()
 
@@ -48,8 +68,10 @@ func main() {
 			AppID:     "wx2f9adc3f3ef8f540",
 			AppSecret: "654e58d975b0fcde812beacd54f8a6c8",
 		},
-		Mongo:  dao.NewMongo(db),
-		Logger: logger,
+		Mongo:          dao.NewMongo(db),
+		Logger:         logger,
+		TokenGenerator: token.NewJWTGen("coolcar/auth", pk),
+		TokenExpire:    2 * time.Hour,
 	})
 
 	err = s.Serve(listenr)
