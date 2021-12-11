@@ -7,6 +7,7 @@ import (
 	shared_mongo "coolcar/shared/mongo"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -14,24 +15,29 @@ import (
 const openIDField = "open_id"
 
 type Mongo struct {
-	col *mongo.Collection
+	col          *mongo.Collection
+	newObjIDFunc func() primitive.ObjectID
 }
 
 // NewMongo 由 main 函数来传要使用哪个 Database
 func NewMongo(db *mongo.Database) *Mongo {
 	return &Mongo{
-		col: db.Collection("account"),
+		col:          db.Collection("account"),
+		newObjIDFunc: primitive.NewObjectID,
 	}
 }
 
 // ResolveAccountID 解析 OpenID，输出 AccountID
 func (m *Mongo) ResolveAccountID(c context.Context, openID string) (string, error) {
 
+	insertedID := m.newObjIDFunc()
+
 	// 查询数据库
 	res := m.col.FindOneAndUpdate(c, bson.M{
 		openIDField: openID,
-	}, shared_mongo.Set(bson.M{
-		openIDField: openID,
+	}, shared_mongo.SetOnInsert(bson.M{
+		shared_mongo.IDField: insertedID,
+		openIDField:          openID,
 	}), options.FindOneAndUpdate().
 		SetUpsert(true).
 		SetReturnDocument(options.After))

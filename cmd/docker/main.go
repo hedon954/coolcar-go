@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -53,6 +54,14 @@ func main() {
 	}
 
 	time.Sleep(5 * time.Second)
+
+	// 获取随机映射的端口
+	inspRes, err := c.ContainerInspect(ctx, resp.ID)
+	if err != nil {
+		panic(err)
+	}
+	port := inspRes.NetworkSettings.Ports["27017/tcp"][0]
+	fmt.Printf("listening at :%v\n", port)
 
 	// 5s 后关闭并删除容器
 	err = c.ContainerStop(ctx, resp.ID, nil)

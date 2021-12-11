@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	authpb "coolcar/auth/api/gen/v1"
 	"coolcar/auth/dao"
@@ -21,12 +22,19 @@ import (
 type Service struct {
 	OpenIDResolver OpenIDResolver // OpenID 解析器
 	Mongo          *dao.Mongo
-	Logger         *zap.Logger // zap 包的日志工具
+	Logger         *zap.Logger    // zap 包的日志工具
+	TokenGenerator TokenGenerator // token 生成器
+	TokenExpire    time.Duration  // token 过期时间
 }
 
 // OpenID 解析器
 type OpenIDResolver interface {
 	Resolve(code string) (string, error)
+}
+
+// TokenGenerator 为 accountID 生成一个 token
+type TokenGenerator interface {
+	GenerateToken(accountID string, expire time.Duration) (string, error)
 }
 
 // Login 登录接口
@@ -44,10 +52,15 @@ func (s *Service) Login(c context.Context, req *authpb.LoginRequest) (*authpb.Lo
 		return nil, status.Error(codes.Internal, "")
 	}
 
-	// 日志
-	s.Logger.Info("received code:", zap.String("code", req.Code))
+	// 生成 token
+	token, err := s.TokenGenerator.GenerateToken(accountID, s.TokenExpire)
+	if err != nil {
+		s.Logger.Error("cannot generate token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "")
+	}
 
 	return &authpb.LoginResponse{
-		AccessToken: "token for account id: " + accountID,
+		AccessToken: token,
+		ExpiresIn:   int32(s.TokenExpire.Seconds()),
 	}, nil
 }

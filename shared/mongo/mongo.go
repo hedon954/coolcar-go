@@ -17,3 +17,10 @@ func Set(v interface{}) bson.M {
 		"$set": v,
 	}
 }
+
+// SetOnInsert returns a $setOnInsert update document
+func SetOnInsert(v interface{}) bson.M {
+	return bson.M{
+		"$setOnInsert": v,
+	}
+}
