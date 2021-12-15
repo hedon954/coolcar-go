@@ -3,6 +3,8 @@ package main
 import (
 	rentalpb "coolcar/rental/api/gen/v1"
 	"coolcar/rental/trip"
+	shared_auth "coolcar/shared/auth"
+
 	"net"
 
 	"go.uber.org/zap"
@@ -23,8 +25,14 @@ func main() {
 		logger.Fatal("cannot create grpc listner", zap.Error(err))
 	}
 
+	// 获取登录拦截器
+	in, err := shared_auth.Interceptor("shared/auth/public.key")
+	if err != nil {
+		logger.Fatal("cannot get auth interceptor", zap.Error(err))
+	}
+
 	// 创建一个新的 grpc 服务
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.UnaryInterceptor(in))
 	rentalpb.RegisterTripServiceServer(s, &trip.Service{
 		Logger: logger,
 	})
