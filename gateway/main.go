@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	authpb "coolcar/auth/api/gen/v1"
+	rentalpb "coolcar/rental/api/gen/v1"
 	"log"
 	"net/http"
 
@@ -29,7 +30,7 @@ func main() {
 		},
 	))
 
-	// 注册其他服务，如 auth 服务
+	// 注册 auth 服务
 	err := authpb.RegisterAuthServiceHandlerFromEndpoint(
 		c,
 		mux,
@@ -40,6 +41,19 @@ func main() {
 	)
 	if err != nil {
 		log.Fatalf("cannot register auth service: %v", err)
+	}
+
+	// 注册 rental 服务
+	err = rentalpb.RegisterTripServiceHandlerFromEndpoint(
+		c,
+		mux,
+		"localhost:9080",
+		[]grpc.DialOption{
+			grpc.WithInsecure(),
+		},
+	)
+	if err != nil {
+		log.Fatalf("cannot register rental service: %v", err)
 	}
 
 	// 启动 grpc gateway

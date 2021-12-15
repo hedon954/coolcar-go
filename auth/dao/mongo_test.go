@@ -74,7 +74,7 @@ func TestResovleAccountID(t *testing.T) {
 	// 测试
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			id, err := m.ResolveAccountID(context.Background(), testCase.openID)
+			id, err := m.ResolveAccountID(c, testCase.openID)
 			if err != nil {
 				t.Errorf("cannot resolve id for %q, error: %v", testCase.openID, err)
 			}
@@ -84,6 +84,8 @@ func TestResovleAccountID(t *testing.T) {
 		})
 	}
 }
+
+
 
 // 必须这么命名
 func TestMain(m *testing.M) {

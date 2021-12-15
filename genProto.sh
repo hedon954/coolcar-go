@@ -27,3 +27,4 @@ function genProto {
 }
 
 genProto auth
+genProto rental
