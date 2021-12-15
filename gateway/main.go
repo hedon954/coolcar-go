@@ -8,11 +8,17 @@ import (
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func main() {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("cannot create zap logger: %v", err)
+	}
+
 	// 创建一个可以取消的 context
 	c, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -30,32 +36,37 @@ func main() {
 		},
 	))
 
-	// 注册 auth 服务
-	err := authpb.RegisterAuthServiceHandlerFromEndpoint(
-		c,
-		mux,
-		"localhost:9090",
-		[]grpc.DialOption{
-			grpc.WithInsecure(),
+	serverConfig := []struct {
+		name         string
+		addr         string
+		registerFunc func(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error)
+	}{
+		{
+			name:         "auth",
+			addr:         "localhost:9090",
+			registerFunc: authpb.RegisterAuthServiceHandlerFromEndpoint,
 		},
-	)
-	if err != nil {
-		log.Fatalf("cannot register auth service: %v", err)
+		{
+			name:         "rental",
+			addr:         "localhost:9080",
+			registerFunc: rentalpb.RegisterTripServiceHandlerFromEndpoint,
+		},
 	}
 
-	// 注册 rental 服务
-	err = rentalpb.RegisterTripServiceHandlerFromEndpoint(
-		c,
-		mux,
-		"localhost:9080",
-		[]grpc.DialOption{
-			grpc.WithInsecure(),
-		},
-	)
-	if err != nil {
-		log.Fatalf("cannot register rental service: %v", err)
+	// 注册 grpc 服务到 grpc gateway
+	for _, s := range serverConfig {
+		err := s.registerFunc(
+			c,
+			mux,
+			s.addr,
+			[]grpc.DialOption{grpc.WithInsecure()},
+		)
+		if err != nil {
+			logger.Sugar().Fatalf("cannot register %s service: %v", s.name, err)
+		}
 	}
 
 	// 启动 grpc gateway
-	log.Fatal(http.ListenAndServe(":9527", mux))
+	logger.Sugar().Info("grpc gateway started at :9527")
+	logger.Sugar().Fatal(http.ListenAndServe(":9527", mux))
 }

@@ -66,7 +66,7 @@ func (i *interceptor) HandleReq(ctx context.Context, req interface{}, info *grpc
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "token not valid: %v", err)
 	}
-	return handler(ContextWithAccountID(ctx, accountID), req)
+	return handler(ContextWithAccountID(ctx, AccountID(accountID)), req)
 }
 
 // tokenFromContext get token from context
@@ -94,18 +94,25 @@ func tokenFromContext(c context.Context) (string, error) {
 type accountIDKey struct {
 }
 
+// Indentifier Type design mode
+type AccountID string
+
+func (a AccountID) String() string {
+	return string(a)
+}
+
 // ContextWithAccountID returns a context with accountID
-func ContextWithAccountID(c context.Context, accountID string) context.Context {
+func ContextWithAccountID(c context.Context, accountID AccountID) context.Context {
 	return context.WithValue(c, accountIDKey{}, accountID)
 }
 
 // AccountIDFromContext returns account from income context
 // returns unauthenticated error if no accountID in context
-func AccountIDFromContext(c context.Context) (string, error) {
+func AccountIDFromContext(c context.Context) (AccountID, error) {
 	v := c.Value(accountIDKey{})
 	accountID, ok := v.(string)
 	if !ok {
 		return "", status.Error(codes.Unauthenticated, "")
 	}
-	return accountID, nil
+	return AccountID(accountID), nil
 }
