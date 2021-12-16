@@ -2,6 +2,7 @@ package shared_token
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/dgrijalva/jwt-go"
 
@@ -38,6 +39,9 @@ func (v *JWTVerifier) Verify(token string) (string, error) {
 	if err = clm.Valid(); err != nil {
 		return "", fmt.Errorf("claim not valid, error: %v", err)
 	}
+
+	log.Printf("token is ok")
+	log.Printf("accountID: %v", clm.Subject)
 
 	// pass
 	// subject == accountID

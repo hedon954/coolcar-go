@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
@@ -59,6 +60,7 @@ func (i *interceptor) HandleReq(ctx context.Context, req interface{}, info *grpc
 	// get token from context
 	token, err := tokenFromContext(ctx)
 	if err != nil {
+		log.Fatalf("cannot get token: %v", req)
 		return nil, status.Error(codes.Unauthenticated, "")
 	}
 
@@ -66,6 +68,7 @@ func (i *interceptor) HandleReq(ctx context.Context, req interface{}, info *grpc
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "token not valid: %v", err)
 	}
+	log.Printf("get accountID: %v", accountID)
 	return handler(ContextWithAccountID(ctx, AccountID(accountID)), req)
 }
 
@@ -84,6 +87,8 @@ func tokenFromContext(c context.Context) (string, error) {
 		}
 	}
 
+	log.Printf("token: %v", token)
+
 	if token == "" {
 		return "", status.Error(codes.Unauthenticated, "")
 	}
@@ -94,6 +99,8 @@ func tokenFromContext(c context.Context) (string, error) {
 type accountIDKey struct {
 }
 
+var aidKey = accountIDKey{}
+
 // Indentifier Type design mode
 type AccountID string
 
@@ -103,15 +110,16 @@ func (a AccountID) String() string {
 
 // ContextWithAccountID returns a context with accountID
 func ContextWithAccountID(c context.Context, accountID AccountID) context.Context {
-	return context.WithValue(c, accountIDKey{}, accountID)
+	return context.WithValue(c, aidKey, accountID)
 }
 
 // AccountIDFromContext returns account from income context
 // returns unauthenticated error if no accountID in context
 func AccountIDFromContext(c context.Context) (AccountID, error) {
-	v := c.Value(accountIDKey{})
-	accountID, ok := v.(string)
+	v := c.Value(aidKey)
+	accountID, ok := v.(AccountID)
 	if !ok {
+		log.Printf("cannot get accountID: %v", c)
 		return "", status.Error(codes.Unauthenticated, "")
 	}
 	return AccountID(accountID), nil
