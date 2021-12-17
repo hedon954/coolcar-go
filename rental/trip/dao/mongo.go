@@ -15,6 +15,7 @@ import (
 const (
 	tripField      = "trip"
 	accountIDField = tripField + ".accountid"
+	statusField    = tripField + ".status"
 )
 
 type Mongo struct {
@@ -67,4 +68,32 @@ func (m *Mongo) GetTrip(c context.Context, id shared_id.TripID, accountID shared
 		return nil, fmt.Errorf("cannot decode insertOne result: %v", err)
 	}
 	return &t, nil
+}
+
+// GetTrips gets trips for the account by status
+// If status is not specified, gets all trip for the account
+func (m *Mongo) GetTrips(c context.Context, accountID shared_id.AccountID, status rentalpb.TripStatus) ([]*TripRecord, error) {
+	filter := bson.M{
+		accountIDField: accountID.String(),
+	}
+
+	if status != rentalpb.TripStatus_TS_NOT_SPECIFIED {
+		filter[statusField] = status
+	}
+
+	res, err := m.col.Find(c, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	var trips []*TripRecord
+	for res.Next(c) {
+		var trip TripRecord
+		err = res.Decode(&trip)
+		if err != nil {
+			return nil, err
+		}
+		trips = append(trips, &trip)
+	}
+	return trips, nil
 }

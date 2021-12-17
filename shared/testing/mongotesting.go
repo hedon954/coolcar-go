@@ -11,6 +11,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -18,9 +21,13 @@ const (
 	CONTAINER_PORT = "27017/tcp"
 )
 
+var mongoURI string
+
+const defaultMongoURI = "mongodb://localhost:27017"
+
 // RunWithMongoInDocker runs the tests with
 // a mongodb instance in a docker container
-func RunWithMongoInDocker(m *testing.M, mongoURI *string) int {
+func RunWithMongoInDocker(m *testing.M) int {
 	// docker run -p 27017:27017 mongo:4
 
 	// 获取 Docker 客户端
@@ -86,7 +93,48 @@ func RunWithMongoInDocker(m *testing.M, mongoURI *string) int {
 		log.Fatal(err)
 	}
 	hostPort := inspRes.NetworkSettings.Ports["27017/tcp"][0]
-	*mongoURI = fmt.Sprintf("mongodb://%s:%s", hostPort.HostIP, hostPort.HostPort)
+	mongoURI = fmt.Sprintf("mongodb://%s:%s", hostPort.HostIP, hostPort.HostPort)
 
 	return m.Run()
+}
+
+// NewClient
+func NewClient(c context.Context) (*mongo.Client, error) {
+	if mongoURI == "" {
+		return nil, fmt.Errorf("mongo uri no set, please run RunWithMongoInDocker in TestMain")
+	}
+	return mongo.Connect(c, options.Client().ApplyURI(mongoURI))
+}
+
+// NewDefaultClient
+func NewDefaultClient(c context.Context) (*mongo.Client, error) {
+	return mongo.Connect(c, options.Client().ApplyURI(defaultMongoURI))
+}
+
+// SetupIndexes setups indexes for mongodb
+func SetupIndexes(c context.Context, d *mongo.Database) error {
+	_, err := d.Collection("account").Indexes().CreateOne(c, mongo.IndexModel{
+		Keys: bson.D{
+			{
+				Key:   "open_id",
+				Value: 1,
+			},
+		},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = d.Collection("trip").Indexes().CreateOne(c, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "trip.accountid", Value: 1},
+			{Key: "trip.status", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetPartialFilterExpression(bson.M{
+			"trip.status": 1,
+		}),
+	})
+
+	return err
 }

@@ -1,6 +1,8 @@
 package shared_mongo
 
 import (
+	"coolcar/shared/mongo/objid"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -22,6 +24,13 @@ type UpdateAtField struct {
 
 // NewObjID generates a new object id
 var NewObjID = primitive.NewObjectID
+
+// NewObjIDWithValue sets id for next objectID generation
+func NewObjIDWithValue(id fmt.Stringer) {
+	NewObjID = func() primitive.ObjectID {
+		return objid.MustFromID(id)
+	}
+}
 
 // UpdateAt returns a  value suitable for UpdateAt field
 var UpdateAt = func() int64 {
