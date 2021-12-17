@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	shared_token "coolcar/shared/auth/token"
+	shared_id "coolcar/shared/id"
 
 	"github.com/dgrijalva/jwt-go"
 	"google.golang.org/grpc"
@@ -69,7 +70,7 @@ func (i *interceptor) HandleReq(ctx context.Context, req interface{}, info *grpc
 		return nil, status.Errorf(codes.Unauthenticated, "token not valid: %v", err)
 	}
 	log.Printf("get accountID: %v", accountID)
-	return handler(ContextWithAccountID(ctx, AccountID(accountID)), req)
+	return handler(ContextWithAccountID(ctx, shared_id.AccountID(accountID)), req)
 }
 
 // tokenFromContext get token from context
@@ -101,26 +102,19 @@ type accountIDKey struct {
 
 var aidKey = accountIDKey{}
 
-// Indentifier Type design mode
-type AccountID string
-
-func (a AccountID) String() string {
-	return string(a)
-}
-
 // ContextWithAccountID returns a context with accountID
-func ContextWithAccountID(c context.Context, accountID AccountID) context.Context {
+func ContextWithAccountID(c context.Context, accountID shared_id.AccountID) context.Context {
 	return context.WithValue(c, aidKey, accountID)
 }
 
 // AccountIDFromContext returns account from income context
 // returns unauthenticated error if no accountID in context
-func AccountIDFromContext(c context.Context) (AccountID, error) {
+func AccountIDFromContext(c context.Context) (shared_id.AccountID, error) {
 	v := c.Value(aidKey)
-	accountID, ok := v.(AccountID)
+	accountID, ok := v.(shared_id.AccountID)
 	if !ok {
 		log.Printf("cannot get accountID: %v", c)
 		return "", status.Error(codes.Unauthenticated, "")
 	}
-	return AccountID(accountID), nil
+	return shared_id.AccountID(accountID), nil
 }

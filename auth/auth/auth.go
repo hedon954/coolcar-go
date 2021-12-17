@@ -53,7 +53,7 @@ func (s *Service) Login(c context.Context, req *authpb.LoginRequest) (*authpb.Lo
 	}
 
 	// 生成 token
-	token, err := s.TokenGenerator.GenerateToken(accountID, s.TokenExpire)
+	token, err := s.TokenGenerator.GenerateToken(accountID.String(), s.TokenExpire)
 	if err != nil {
 		s.Logger.Error("cannot generate token", zap.Error(err))
 		return nil, status.Error(codes.Internal, "")

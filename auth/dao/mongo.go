@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	shared_id "coolcar/shared/id"
 	shared_mongo "coolcar/shared/mongo"
+	"coolcar/shared/mongo/objid"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -15,29 +16,27 @@ import (
 const openIDField = "open_id"
 
 type Mongo struct {
-	col          *mongo.Collection
-	newObjIDFunc func() primitive.ObjectID
+	col *mongo.Collection
 }
 
 // NewMongo 由 main 函数来传要使用哪个 Database
 func NewMongo(db *mongo.Database) *Mongo {
 	return &Mongo{
-		col:          db.Collection("account"),
-		newObjIDFunc: primitive.NewObjectID,
+		col: db.Collection("account"),
 	}
 }
 
 // ResolveAccountID 解析 OpenID，输出 AccountID
-func (m *Mongo) ResolveAccountID(c context.Context, openID string) (string, error) {
+func (m *Mongo) ResolveAccountID(c context.Context, openID string) (shared_id.AccountID, error) {
 
-	insertedID := m.newObjIDFunc()
+	insertedID := shared_mongo.NewObjID()
 
 	// 查询数据库
 	res := m.col.FindOneAndUpdate(c, bson.M{
 		openIDField: openID,
 	}, shared_mongo.SetOnInsert(bson.M{
-		shared_mongo.IDField: insertedID,
-		openIDField:          openID,
+		shared_mongo.IDFieldName: insertedID,
+		openIDField:              openID,
 	}), options.FindOneAndUpdate().
 		SetUpsert(true).
 		SetReturnDocument(options.After))
@@ -48,7 +47,7 @@ func (m *Mongo) ResolveAccountID(c context.Context, openID string) (string, erro
 	}
 
 	// 解析出 AccountID，类型为 MongoDB 中的 ObjectID
-	var row shared_mongo.ObjID
+	var row shared_mongo.IDField
 
 	// 解码
 	err := res.Decode(&row)
@@ -57,6 +56,6 @@ func (m *Mongo) ResolveAccountID(c context.Context, openID string) (string, erro
 	}
 
 	// 返回 AccountID
-	return row.ID.Hex(), nil
+	return objid.ToAccountID(row.ID), nil
 
 }

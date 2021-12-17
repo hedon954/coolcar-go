@@ -5,7 +5,9 @@ import (
 	"os"
 	"testing"
 
+	shared_id "coolcar/shared/id"
 	shared_mongo "coolcar/shared/mongo"
+	"coolcar/shared/mongo/objid"
 	mongotesting "coolcar/shared/testing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -31,12 +33,12 @@ func TestResovleAccountID(t *testing.T) {
 	// 插入表格数据，做表格测试
 	_, err = m.col.InsertMany(c, []interface{}{
 		bson.M{
-			shared_mongo.IDField: MustObjID("61b1e4caf6d536ccefdae779"),
-			openIDField:          "open_id_123",
+			shared_mongo.IDFieldName: objid.MustFromID(shared_id.AccountID("61b1e4caf6d536ccefdae779")),
+			openIDField:              "open_id_123",
 		},
 		bson.M{
-			shared_mongo.IDField: MustObjID("61b1e4caf6d536ccefdae778"),
-			openIDField:          "open_id_456",
+			shared_mongo.IDFieldName: objid.MustFromID(shared_id.AccountID("61b1e4caf6d536ccefdae778")),
+			openIDField:              "open_id_456",
 		},
 	})
 	if err != nil {
@@ -44,8 +46,8 @@ func TestResovleAccountID(t *testing.T) {
 	}
 
 	// 不存在的用户要插入的 ObjectID
-	m.newObjIDFunc = func() primitive.ObjectID {
-		return MustObjID("61b1e4caf6d536ccefdae777")
+	shared_mongo.NewObjID = func() primitive.ObjectID {
+		return objid.MustFromID(shared_id.AccountID("61b1e4caf6d536ccefdae777"))
 	}
 
 	// 测试样例
@@ -78,22 +80,14 @@ func TestResovleAccountID(t *testing.T) {
 			if err != nil {
 				t.Errorf("cannot resolve id for %q, error: %v", testCase.openID, err)
 			}
-			if id != testCase.want {
+			if id.String() != testCase.want {
 				t.Errorf("Error!!! resolve account id failed, want: %q, got %q", testCase.want, id)
 			}
 		})
 	}
 }
 
-
-
 // 必须这么命名
 func TestMain(m *testing.M) {
 	os.Exit(mongotesting.RunWithMongoInDocker(m, &mongoURI))
-}
-
-// 生成固定的 ObjectID
-func MustObjID(hex string) primitive.ObjectID {
-	objID, _ := primitive.ObjectIDFromHex(hex)
-	return objID
 }
