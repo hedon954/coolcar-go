@@ -2,11 +2,12 @@ package dao
 
 import (
 	"context"
+	"fmt"
+
 	rentalpb "coolcar/rental/api/gen/v1"
 	shared_id "coolcar/shared/id"
 	shared_mongo "coolcar/shared/mongo"
 	"coolcar/shared/mongo/objid"
-	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -96,4 +97,33 @@ func (m *Mongo) GetTrips(c context.Context, accountID shared_id.AccountID, statu
 		trips = append(trips, &trip)
 	}
 	return trips, nil
+}
+
+// UpdateTrip updates a trip
+// Need Optimistic Lock by using updateAt field
+func (m *Mongo) UpdateTrip(c context.Context, tripID shared_id.TripID, accountID shared_id.AccountID, updateAt int64, trip *rentalpb.Trip) error {
+	oid, err := objid.FromID(tripID)
+	if err != nil {
+		return err
+	}
+	newUpdateAt := shared_mongo.UpdateAt()
+
+	res, err := m.col.UpdateOne(c, bson.M{
+		shared_mongo.IDFieldName:       oid,
+		accountIDField:                 accountID.String(),
+		shared_mongo.UpdateAtFieldName: updateAt,
+	}, shared_mongo.Set(bson.M{
+		tripField:                      trip,
+		shared_mongo.UpdateAtFieldName: newUpdateAt,
+	}))
+
+	if err != nil {
+		return err
+	}
+
+	if res.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+
+	return nil
 }

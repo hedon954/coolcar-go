@@ -246,6 +246,104 @@ func TestGetTrips(t *testing.T) {
 	}
 }
 
+func TestUpdateTrip(t *testing.T) {
+	c := context.Background()
+	mc, err := mongotesting.NewClient(c)
+	if err != nil {
+		t.Fatalf("cannot connect mongodb: %v", err)
+	}
+	m := NewMongo(mc.Database("coolcar"))
+
+	// insert a trip before
+	tripID := shared_id.TripID("61bb48e569239c93c16d96bd")
+	accountID := shared_id.AccountID("account_for_update")
+
+	// set time
+	var now int64 = 10000
+	shared_mongo.NewObjIDWithValue(tripID)
+	shared_mongo.UpdateAt = func() int64 {
+		return now
+	}
+
+	tr, err := m.CreateTrip(c, &rentalpb.Trip{
+		AccountId: accountID.String(),
+		Status:    rentalpb.TripStatus_IN_PROGRESS,
+		Start: &rentalpb.LocationStatus{
+			PositionName: "start_poi",
+		},
+	})
+	if err != nil {
+		t.Fatalf("cannot create a trip: %v", err)
+	}
+
+	if tr.UpdateAt != 10000 {
+		t.Fatalf("wrong updateAt; want: %d, got: %d", now, tr.UpdateAt)
+	}
+
+	// test cases
+	update := &rentalpb.Trip{
+		AccountId: accountID.String(),
+		Status:    rentalpb.TripStatus_IN_PROGRESS,
+		Start: &rentalpb.LocationStatus{
+			PositionName: "start_poi_updated",
+		},
+	}
+
+	cases := []struct {
+		name         string
+		now          int64
+		withUpdateAt int64
+		wantErr      bool
+	}{
+		{
+			name:         "normal_update",
+			now:          20000,
+			withUpdateAt: 10000,
+			wantErr:      false,
+		},
+		{
+			name:         "update_with_stale_timestamp",
+			now:          3000,
+			withUpdateAt: 10000,
+			wantErr:      true,
+		},
+		{
+			name:         "update_with_refetch",
+			now:          40000,
+			withUpdateAt: 20000,
+			wantErr:      false,
+		},
+	}
+
+	// update
+	for _, testCase := range cases {
+		now = testCase.now
+		err = m.UpdateTrip(c, tripID, accountID, testCase.withUpdateAt, update)
+		if testCase.wantErr {
+			if err == nil {
+				t.Errorf("%s: want error, got none", testCase.name)
+			} else {
+				continue
+			}
+		} else {
+			if err != nil {
+				t.Errorf("%s: cannot update: %v", testCase.name, err)
+			}
+		}
+
+		updatedTrip, err := m.GetTrip(c, tripID, accountID)
+		if err != nil {
+			if err != nil {
+				t.Errorf("%s: cannot get trip after update: %v", testCase.name, err)
+			}
+		}
+
+		if now != updatedTrip.UpdateAt {
+			t.Errorf("%s: incorrect updateat: want: %d, got: %d", testCase.name, testCase.now, updatedTrip.UpdateAt)
+		}
+	}
+}
+
 // 必须这么命名
 func TestMain(m *testing.M) {
 	os.Exit(mongotesting.RunWithMongoInDocker(m))
